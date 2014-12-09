@@ -1,6 +1,6 @@
 package demo.springBoot.tool.csv;
 
-public class CSVObject {
+public class CSVObject extends Object {
 
 	private String firstValue;
 	

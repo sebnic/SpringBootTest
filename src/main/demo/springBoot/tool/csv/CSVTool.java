@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
+import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -19,12 +20,12 @@ import demo.springBoot.tool.csv.CSVToolException.ErrorCase;
 
 /**
  * 
- * @author Sébastien Nicaisse
+ * @author Sï¿½bastien Nicaisse
  * 
  * This class provides methods to handle CSV files.
  *
  */
-public class CSVTool {
+public class CSVTool<T> {
 
 	/**
 	 * Build objects using informations from a CSV file. The link between the field name and the method name is done by the using of {@link demo.springBoot.tool.csv.CSVAttributAnnotation} The file is
@@ -39,7 +40,7 @@ public class CSVTool {
 	 *             This exception is launched: <li>when the file is not reachable,</li> <li>when the constructor is not reachable,</li> <li>when a method is not reachable.</li> <li>When the method
 	 *             signature of a setter is bad (each setters signature must be composed a string parameter only).</li>
 	 */
-	public static List<? extends Object> getCSVObjects(String fileName, Class<? extends Object> csvObjectClass) throws CSVToolException {
+	public List<T> getCSVObjects(String fileName, Class<T> csvObjectClass) throws CSVToolException {
 		Map<String, String> csvFieldName2objectMethodName = new HashMap<String, String>();
 		for (Method method : csvObjectClass.getMethods()) {
 			CSVAttributAnnotation csvAttributAnnotation = method.getAnnotation(CSVAttributAnnotation.class);
@@ -68,18 +69,22 @@ public class CSVTool {
 	 * @throws CSVToolException
 	 *             This exception is launched: <li>when the file is not reachable,</li> <li>when the constructor is not reachable,</li> <li>when a method is not reachable.</li>
 	 */
-	public static List<? extends Object> getCSVObjects(String fileName, Class<? extends Object> csvObjectClass, Map<String, String> csvFieldName2objectMethodName) throws CSVToolException {
-		File file = new File(fileName);
+	public List<T> getCSVObjects(String fileName, Class<T> csvObjectClass, Map<String, String> csvFieldName2objectMethodName) throws CSVToolException {
+		URL resourceFileUrl = getClass().getResource(fileName);
+		if (resourceFileUrl == null) {
+			throw new CSVToolException(ErrorCase.NO_ACCESS_CSV_FILE, "The file '" + fileName + "' doesn't exist.");
+		}
+		File file = new File(resourceFileUrl.getFile());
 		CSVParser csvParser;
 		try {
-			csvParser = CSVParser.parse(file, Charset.defaultCharset(), CSVFormat.DEFAULT);
+			csvParser = CSVParser.parse(file, Charset.defaultCharset(), CSVFormat.DEFAULT.withHeader());
 		} catch (IOException e) {
 			throw new CSVToolException(ErrorCase.NO_ACCESS_CSV_FILE, "The file '" + fileName + "' is not reachable.");
 		}
-		List<? extends Object> csvObjects = new ArrayList<Object>();
+		List<T> csvObjects = new ArrayList<T>();
 		try {
 			for (CSVRecord csvRecord : csvParser.getRecords()) {
-				Object csvObject;
+				T csvObject;
 				try {
 					csvObject = csvObjectClass.newInstance();
 				} catch (InstantiationException | IllegalAccessException e) {
@@ -89,12 +94,14 @@ public class CSVTool {
 					if (csvRecord.isSet(csvFieldName)) {
 						String methodName = csvFieldName2objectMethodName.get(csvFieldName);
 						String value = csvRecord.get(csvFieldName);
-						Method method;
-						try {
-							method = csvObjectClass.getMethod(methodName, String.class);
-						} catch (NoSuchMethodException | SecurityException e) {
-							throw new CSVToolException(ErrorCase.NO_ACCESS_METHOD, "The method '" + methodName + "' is not reachable.");
-						}
+						Method method = null;
+							try {
+								method = csvObjectClass.getMethod(methodName, String.class);
+							} catch (NoSuchMethodException e1) {
+								throw new CSVToolException(ErrorCase.BAD_METHOD_SIGNATURE, "The method '" + methodName + "' is not existing or has a bad signature.");
+							} catch (SecurityException e1) {
+								throw new CSVToolException(ErrorCase.NO_ACCESS_METHOD, "The method '" + methodName + "' is not reachable.");
+							}
 						try {
 							method.invoke(csvObject, value);
 						} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
@@ -102,6 +109,7 @@ public class CSVTool {
 						}
 					}
 				}
+				csvObjects.add(csvObject);
 			}
 
 		} catch (IOException e) {

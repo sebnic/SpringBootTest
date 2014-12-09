@@ -1,4 +1,4 @@
-first_fieldName, second_fieldName, third_fieldName, withTwoParameters_fieldName, withBadParameterType_fieldName, withPrivateSetter_fieldName, withoutAnnotation_fieldName
-value_1_1, value_1_2, value_1_3, value_1_4, value_1_5, value_1_6, value_1_7
-value_2_1, value_2_2, value_2_3, value_2_4, value_2_5, value_2_6, value_1_7
-value_3_1, value_3_2, value_3_3, value_3_4, value_3_5, value_3_6, value_1_7
+first_fieldName,second_fieldName,third_fieldName,withTwoParameters_fieldName,withBadParameterType_fieldName,withPrivateSetter_fieldName,withoutAnnotation_fieldName
+value_1_1,value_1_2,value_1_3,value_1_4,value_1_5,value_1_6,value_1_7
+value_2_1,value_2_2,value_2_3,value_2_4,value_2_5,value_2_6,value_2_7
+value_3_1,value_3_2,value_3_3,value_3_4,value_3_5,value_3_6,value_3_7
