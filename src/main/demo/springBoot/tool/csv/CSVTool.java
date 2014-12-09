@@ -20,7 +20,7 @@ import demo.springBoot.tool.csv.CSVToolException.ErrorCase;
 
 /**
  * 
- * @author S�bastien Nicaisse
+ * @author Sebastien Nicaisse
  * 
  * This class provides methods to handle CSV files.
  *

@@ -2,7 +2,7 @@ package demo.springBoot.tool.csv;
 
 /**
  * 
- * @author S�bastien Nicaisse
+ * @author Sebastien Nicaisse
  * 
  * This exception is used when an error is detected during the execution of CSVTool's methods.
  *

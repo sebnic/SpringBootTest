@@ -7,7 +7,7 @@ import java.lang.annotation.Target;
 
 /**
  * 
- * @author Sébastien Nicaisse
+ * @author Sebastien Nicaisse
  * 
  * This annotation allows to link a field and a method.
  *
