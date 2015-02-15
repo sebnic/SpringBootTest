@@ -4,7 +4,7 @@ public class CSVObject extends Object {
 
 	private String firstValue;
 	
-	private String secondValue;
+	private int secondValue;
 	
 	private String thirdValue;
 	
@@ -19,12 +19,12 @@ public class CSVObject extends Object {
 		this.firstValue = firstValue;
 	}
 
-	public String getSecondValue() {
+	public int getSecondValue() {
 		return secondValue;
 	}
 
 	@CSVAttributAnnotation(fieldName="second_fieldName")
-	public void setSecondValue(String secondValue) {
+	public void setSecondValue(int secondValue) {
 		this.secondValue = secondValue;
 	}
 

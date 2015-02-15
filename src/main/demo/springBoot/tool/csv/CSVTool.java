@@ -2,9 +2,12 @@ package demo.springBoot.tool.csv;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -22,7 +25,7 @@ import demo.springBoot.tool.csv.CSVToolException.ErrorCase;
  * 
  * @author Sebastien Nicaisse
  * 
- * This class provides methods to handle CSV files.
+ *         This class provides methods to handle CSV files.
  *
  */
 public class CSVTool<T> {
@@ -41,19 +44,14 @@ public class CSVTool<T> {
 	 *             signature of a setter is bad (each setters signature must be composed a string parameter only).</li>
 	 */
 	public List<T> getCSVObjects(String fileName, Class<T> csvObjectClass) throws CSVToolException {
-		Map<String, String> csvFieldName2objectMethodName = new HashMap<String, String>();
+		Map<String, Method> csvFieldName2objectMethod = new HashMap<String, Method>();
 		for (Method method : csvObjectClass.getMethods()) {
 			CSVAttributAnnotation csvAttributAnnotation = method.getAnnotation(CSVAttributAnnotation.class);
 			if (csvAttributAnnotation != null) {
-				Type[] types = method.getGenericParameterTypes();
-				if (types.length == 1 && types[0].getTypeName().equals(String.class.getName())) {
-					csvFieldName2objectMethodName.put(csvAttributAnnotation.fieldName(), method.getName());
-				} else {
-					throw new CSVToolException(ErrorCase.BAD_METHOD_SIGNATURE, "The method '" + method.getName() + "' has a bad signature.");
-				}
+				csvFieldName2objectMethod.put(csvAttributAnnotation.fieldName(), method);
 			}
 		}
-		return getCSVObjects(fileName, csvObjectClass, csvFieldName2objectMethodName);
+		return getCSVObjects(fileName, csvObjectClass, csvFieldName2objectMethod);
 	}
 
 	/**
@@ -63,18 +61,23 @@ public class CSVTool<T> {
 	 *            CSV file name where the informations are extracted.
 	 * @param csvObjectClass
 	 *            Class of objects to build.
-	 * @param csvFieldName2objectMethodName
-	 *            Map linking the field name of CSV file and the method name of the object to build.
+	 * @param csvFieldName2objectMethod
+	 *            Map linking the field name of CSV file and the method of the object to build.
 	 * @return The list of built objects
 	 * @throws CSVToolException
 	 *             This exception is launched: <li>when the file is not reachable,</li> <li>when the constructor is not reachable,</li> <li>when a method is not reachable.</li>
 	 */
-	public List<T> getCSVObjects(String fileName, Class<T> csvObjectClass, Map<String, String> csvFieldName2objectMethodName) throws CSVToolException {
+	public List<T> getCSVObjects(String fileName, Class<T> csvObjectClass, Map<String, Method> csvFieldName2objectMethod) throws CSVToolException {
 		URL resourceFileUrl = getClass().getResource(fileName);
 		if (resourceFileUrl == null) {
 			throw new CSVToolException(ErrorCase.NO_ACCESS_CSV_FILE, "The file '" + fileName + "' doesn't exist.");
 		}
-		File file = new File(resourceFileUrl.getFile());
+		File file = null;
+		try {
+			file = new File(resourceFileUrl.toURI());
+		} catch (URISyntaxException e1) {
+			throw new CSVToolException(ErrorCase.NO_ACCESS_CSV_FILE, "The file '" + fileName + "' is not reachable.");
+		}
 		CSVParser csvParser;
 		try {
 			csvParser = CSVParser.parse(file, Charset.defaultCharset(), CSVFormat.DEFAULT.withHeader());
@@ -90,22 +93,34 @@ public class CSVTool<T> {
 				} catch (InstantiationException | IllegalAccessException e) {
 					throw new CSVToolException(ErrorCase.BUILDING_CONSTRUCTOR_ERROR, "The constructor with no argument is not reachable.");
 				}
-				for (String csvFieldName : csvFieldName2objectMethodName.keySet()) {
+				for (String csvFieldName : csvFieldName2objectMethod.keySet()) {
 					if (csvRecord.isSet(csvFieldName)) {
-						String methodName = csvFieldName2objectMethodName.get(csvFieldName);
+						Method method = csvFieldName2objectMethod.get(csvFieldName);
 						String value = csvRecord.get(csvFieldName);
-						Method method = null;
-							try {
-								method = csvObjectClass.getMethod(methodName, String.class);
-							} catch (NoSuchMethodException e1) {
-								throw new CSVToolException(ErrorCase.BAD_METHOD_SIGNATURE, "The method '" + methodName + "' is not existing or has a bad signature.");
-							} catch (SecurityException e1) {
-								throw new CSVToolException(ErrorCase.NO_ACCESS_METHOD, "The method '" + methodName + "' is not reachable.");
-							}
+						if (method.getParameterTypes().length != 1) {
+							throw new CSVToolException(ErrorCase.BAD_METHOD_SIGNATURE, "The method '" + method.getName() + "' has a bad signature because it isn't composed of one parameter.");
+						}
+						if (!Modifier.isPublic(method.getModifiers())) {
+							throw new CSVToolException(ErrorCase.NO_ACCESS_METHOD, "The method '" + method.getName() + "' is not reachable.");
+						}
+						Class<?> valueClass = method.getParameterTypes()[0];
 						try {
-							method.invoke(csvObject, value);
-						} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-							throw new CSVToolException(ErrorCase.EXECUTE_METHOD_ERROR, "Detected error when the method '" + methodName + "' has been executed.");
+							Constructor<?> valueConstructor = valueClass.getConstructor(String.class);
+							try {
+								Object valueObject = valueConstructor.newInstance(value);
+								try {
+									method.invoke(csvObject, valueObject);
+								} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+									throw new CSVToolException(ErrorCase.EXECUTE_METHOD_ERROR, "An error has been bring about by the running of the method '" + method.getName() + "'");
+								}
+							} catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+								throw new CSVToolException(ErrorCase.EXECUTE_METHOD_ERROR, "An error has been bring about by the building of new instance with the constructor '"
+										+ valueConstructor.getName() + "'");
+							}
+						} catch (NoSuchMethodException e) {
+							throw new CSVToolException(ErrorCase.BAD_METHOD_SIGNATURE, "The class '" + valueClass.getName() + "' is not existing or its signature is bad.");
+						} catch (SecurityException e) {
+							throw new CSVToolException(ErrorCase.NO_ACCESS_METHOD, "The constructor of the class '" + valueClass.getName() + "' is not reachable.");
 						}
 					}
 				}
