@@ -46,7 +46,7 @@ public class TestCSVTool {
 
 	private void assertCsvObject(int index, CSVObject csvObject) {
 		Assert.assertEquals("value_" + index + "_1", csvObject.getFirstValue());
-		Assert.assertEquals("value_" + index + "_2", csvObject.getSecondValue());
+		Assert.assertEquals(3*index, csvObject.getSecondValue());
 		Assert.assertEquals("value_" + index + "_3", csvObject.getThirdValue());
 	}
 	

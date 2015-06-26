@@ -19,6 +19,8 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 
+import com.sun.org.apache.xpath.internal.operations.Bool;
+
 import demo.springBoot.tool.csv.CSVToolException.ErrorCase;
 
 /**
@@ -104,23 +106,45 @@ public class CSVTool<T> {
 							throw new CSVToolException(ErrorCase.NO_ACCESS_METHOD, "The method '" + method.getName() + "' is not reachable.");
 						}
 						Class<?> valueClass = method.getParameterTypes()[0];
-						try {
-							Constructor<?> valueConstructor = valueClass.getConstructor(String.class);
-							try {
-								Object valueObject = valueConstructor.newInstance(value);
-								try {
-									method.invoke(csvObject, valueObject);
-								} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-									throw new CSVToolException(ErrorCase.EXECUTE_METHOD_ERROR, "An error has been bring about by the running of the method '" + method.getName() + "'");
-								}
-							} catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-								throw new CSVToolException(ErrorCase.EXECUTE_METHOD_ERROR, "An error has been bring about by the building of new instance with the constructor '"
-										+ valueConstructor.getName() + "'");
+						Object valueObject = null;
+						if (valueClass.isPrimitive()) {
+							String type = valueClass.getTypeName();
+							if (type.equals(Boolean.TYPE.getName())) {
+								valueObject = Boolean.parseBoolean(value);
+							} else if (type.equals(Integer.TYPE.getName())) {
+								valueObject = Integer.parseInt(value);
+							} else if (type.equals(Double.TYPE.getName())) {
+								valueObject = Double.parseDouble(value);
+							} else if (type.equals(Float.TYPE.getName())) {
+								valueObject = Float.parseFloat(value);
+							} else if (type.equals(Long.TYPE.getName())) {
+								valueObject = Long.parseLong(value);
+							} else if (type.equals(Byte.TYPE.getName())) {
+								valueObject = Byte.parseByte(value);
+							} else if (type.equals(Short.TYPE.getName())) {
+								valueObject = Short.parseShort(value);
+							} else if (type.equals(Character.TYPE.getName())) {
+								valueObject = value.charAt(0);
 							}
-						} catch (NoSuchMethodException e) {
-							throw new CSVToolException(ErrorCase.BAD_METHOD_SIGNATURE, "The class '" + valueClass.getName() + "' is not existing or its signature is bad.");
-						} catch (SecurityException e) {
-							throw new CSVToolException(ErrorCase.NO_ACCESS_METHOD, "The constructor of the class '" + valueClass.getName() + "' is not reachable.");
+						} else {
+							try {
+								Constructor<?> valueConstructor = valueClass.getConstructor(String.class);
+								try {
+									valueObject = valueConstructor.newInstance(value);
+								} catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+									throw new CSVToolException(ErrorCase.EXECUTE_METHOD_ERROR, "An error has been bring about by the building of new instance with the constructor '"
+											+ valueConstructor.getName() + "'");
+								}
+							} catch (NoSuchMethodException e) {
+								throw new CSVToolException(ErrorCase.BAD_METHOD_SIGNATURE, "The class '" + valueClass.getName() + "' is not existing or its signature is bad.");
+							} catch (SecurityException e) {
+								throw new CSVToolException(ErrorCase.NO_ACCESS_METHOD, "The constructor of the class '" + valueClass.getName() + "' is not reachable.");
+							}
+						}
+						try {
+							method.invoke(csvObject, valueObject);
+						} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+							throw new CSVToolException(ErrorCase.EXECUTE_METHOD_ERROR, "An error has been bring about by the running of the method '" + method.getName() + "'");
 						}
 					}
 				}
